@@ -1,91 +1,168 @@
-# Raman Analyzer
+# RamanAnalyzer — Modular, Automated Raman Spectral Analysis (Python)
 
 ![Fitting Results](./fit.png)
 
-**Raman Analyzer** is an open-source Python package that streamlines the preprocessing and analysis of Raman spectroscopy data. This repository provides functions to:
-1. **Parse raw CSV files** into DataFrames.
-2. **Despike** (remove cosmic rays).
-3. **Average** multiple spectra to improve SNR.
-4. **Perform baseline correction** (using ALS or IARPLS).
-5. **Smooth** noisy spectra (Savitzky–Golay, optional).
-6. **Convert** wavelength to wavenumber.
-7. **Fit Voigt peaks** iteratively, adding additional peaks from residuals.
+**Author:** Mykyta Kizilov  
+**Affiliation:** Advanced Spectroscopy Laboratory, Texas A&M University  
+**Repository:** `https://github.com/mkizilov/RamanAnalyzer`  
+
+> A lightweight, modular toolkit for Raman spectra preprocessing and Voigt peak analysis. Includes CSV parsing, wavelength→wavenumber conversion, despiking, baseline correction (ALS & IarPLS), spectrum averaging, and iterative Voigt fitting with residual-driven refinement.
+
+![Workflow](./figures/Raman_workflow.png)
+
+---
 
 ## Features
 
-- **Cosmic Ray Removal**  
-  Uses a modified Z-score to detect and remove high-intensity spikes caused by cosmic rays.
-- **Averaging**  
-  Interpolates multiple DataFrames onto a common wavenumber grid and averages to improve signal-to-noise ratio (SNR).
-- **Baseline Correction**  
-  - Asymmetric Least Squares (ALS) method  
-  - Improved Asymmetric Reweighted Penalized Least Squares (IARPLS) method
-- **Despiking**  
-  Easily remove outliers while preserving spectral features.
-- **Convert Wavelength to Wavenumber**  
-  Convert an axis in nanometers (nm) to wavenumbers (cm⁻¹) using the excitation wavelength.
-- **Voigt Peak Fitting**  
-  Automatically detect peaks in the spectrum and fit them to Voigt profiles. An iterative approach updates the fit by adding peaks found in the residual.
+- **I/O**: Multi-trace CSV parser → list of `DataFrame`s (`Wavenumber`, `Intensity`)
+- **Coordinate tools**: Wavelength→Raman shift conversion (cm⁻¹)
+- **Utilities**: Averaging with interpolation to a common axis; range cutting
+- **Artifact removal**: Cosmic-ray **despiking** (modified Z-score)
+- **Baseline**: **ALS** and **IarPLS** background estimation
+- **Peak modeling**: Iterative **Voigt** fitting (`lmfit`) with residual peak discovery & model pruning
+- **Plotting**: Quick visualization helpers for spectra, baselines, fits & residuals
 
-## Getting Started
+---
 
-1. **Clone the repository**  
-   ```bash
-   git clone https://github.com/mkizilov/RamanAnalyzer.git
+## Installation
 
-2. **Install the required packages**  
-    Manually install the libraries in your Python environment:
-    ```bash
-    pip install numpy scipy pandas matplotlib lmfit
-    ```
+```bash
+# Python 3.9+ recommended
+pip install numpy scipy pandas lmfit matplotlib
+```
 
-3. **Import and use**  
-    In your Python scripts or Jupyter notebook, import the module:
-    ```python
-    import RamanAnalyzer as ra
-    ```
-    Then call the functions on your data.
+> Dependencies used in this repo: `numpy`, `scipy`, `pandas`, `lmfit`, `matplotlib`.
 
-## Usage Examples
+---
 
-Below is a short demonstration of how to use RamanAnalyzer in a Jupyter notebook. For a complete example, see `example.ipynb`.
+## Quickstart
 
+### 1) Load & average spectra
 ```python
-import RamanAnalyzer as ra
+import pandas as pd
+from raman_analyzer import (
+    raman_parser, average_raman, cut_spectra, plot_raman
+)
 
-# 1. Parse CSV (returns a list of DataFrames)
-dataframes = ra.raman_parser('data/sample_raman.csv')
-
-# 2. Despike
-df_despiked = ra.despike_raman(dataframes[0], moving_average=2, threshold=7, plot=True)
-
-# 3. Baseline correction
-df_baselined = ra.estimate_baseline(df_despiked, lam=1e5, p=0.001, niter=10, plot=True)
-
-# 4. Convert wavelength to wavenumber (if needed)
-df_wavenumber = ra.convert_wavelength_to_wavenumber(df_baselined, 532.0)
-
-# 5. Fit Voigt peaks
-fit_result = ra.fit_voigts(df_wavenumber, 
-                                  threshold=10,
-                                  min_dist=5, 
-                                  min_height=5, 
-                                  plot=True)
+dfs = raman_parser("data/example.csv")        # CSV: first col = wavelength or wavenumber, subsequent cols = intensities
+spec = average_raman(dfs, plot=True)          # Interpolate to common grid and average
+spec = cut_spectra(spec, start=200, end=2000) # Optional region of interest
+plot_raman(spec, "Averaged Spectrum")
 ```
 
-## Structure
+### 2) (If your CSV uses wavelength) convert to Raman shift
+```python
+from raman_analyzer import convert_wavelength_to_wavenumber
+spec = convert_wavelength_to_wavenumber(spec, excitation_wavelength_nm=532.0)
+```
 
+### 3) Despike + baseline
+```python
+from raman_analyzer import despike_raman, estimate_baseline, estimate_baseline_iarpls
+
+spec = despike_raman(spec, moving_average=8, threshold=7, plot=True)     # cosmic ray suppression
+spec = estimate_baseline(spec, lam=1e7, p=0.05, niter=3, plot=True)      # ALS baseline (fast & robust)
+# Or try the adaptive IarPLS variant:
+# spec = estimate_baseline_iarpls(spec, lam=1e7, niter=50, epsilon=1e-6, plot=True)
 ```
-RamanAnalyzer/
-├── RamanAnalyzer.py        # Python module containing main data-processing functions
-├── example.ipynb           # Jupyter Notebook demonstrating module usage
-├── README.md              # This file
+
+### 4) Iterative Voigt fitting
+```python
+from raman_analyzer import fit_voigts
+
+result = fit_voigts(
+    spec,
+    title="Sample — Voigt Fit",
+    threshold=0.25,      # residual peak detection threshold
+    min_dist=2,          # min peak distance (in samples)
+    min_height=2,        # remove negligible peaks
+    max_iterations=5,
+    center_vary=5,       # center bounds (± cm⁻¹)
+    plot=True,           # plots fit & residuals each iteration
+    verbose=True
+)
+
+# Access fitted parameters (lmfit ModelResult)
+print(result.fit_report())
+params = result.params
 ```
+
+---
+
+## Expected CSV format
+
+- First row: units/header line (skipped by parser)
+- First column: **Wavenumber** *or* **Wavelength**
+- Remaining columns: **Intensity** traces (one column per spectrum)
+
+Example (snippet):
+```text
+units, trace_1, trace_2, ...
+Wavenumber(or Wavelength), I1, I2, ...
+...
+```
+
+---
+
+## API (selected)
+
+- `raman_parser(file_path) → list[pd.DataFrame]`  
+  Read multi-trace CSV into DataFrames with (`Wavenumber`, `Intensity`).
+
+- `calculate_wavenumber_from_wavelength(ex_nm, λ_nm) → ν_cm⁻¹`  
+  Single-point conversion.
+
+- `convert_wavelength_to_wavenumber(df, ex_nm) → df`  
+  Column-wise wavelength→Raman shift conversion.
+
+- `average_raman(dfs, resolution=None, plot=False) → df`  
+  Interpolate to common axis & average multiple spectra.
+
+- `cut_spectra(df, start=None, end=None) → df`  
+  Range selection by Raman shift.
+
+- `despike_raman(df, moving_average, threshold=7, plot=False) → df`  
+  Modified Z-score despiking on first differences.
+
+- `estimate_baseline(df, lam=1e7, p=0.05, niter=3, plot=False) → df`  
+  Asymmetric Least Squares (ALS) baseline removal.
+
+- `estimate_baseline_iarpls(df, lam=1e7, niter=50, epsilon=1e-6, plot=False) → df`  
+  IarPLS baseline (iterative, adaptive weights).
+
+- `fit_voigts(df, ..., plot=False, max_iterations=5, ...) → lmfit.ModelResult`  
+  Peak detect → composite Voigt fit → residual peak add-in → prune weak peaks → repeat.
+
+- `plot_raman(df, title_prefix="Intensity Plot")`  
+  Simple line plot of `Wavenumber` vs `Intensity`.
+
+---
+
+## Citing
+
+If you use this software in academic work, please cite:
+
+> **Kizilov M.**, Cheburkanov V., Harrington J., Yakovlev V. V.  
+> *Modular and Automated Workflow for Streamlined Raman Signal Analysis* (manuscript).  
+> Keywords: Raman spectroscopy, automated preprocessing, Voigt peak fitting, baseline correction, noise suppression.
+
+**BibTeX**
+```bibtex
+@article{KizilovRamanAnalyzer,
+  title   = {Modular and Automated Workflow for Streamlined Raman Signal Analysis},
+  author  = {Kizilov, Mykyta and Cheburkanov, Vsevolod and Harrington, Joseph and Yakovlev, Vladislav V.},
+  journal = {Journal of Raman Spectroscopy},
+  year    = {2025}
+}
+```
+
+---
 
 ## Contributing
+Contributions are welcome.
 
-We welcome pull requests that fix bugs or add new features.
+---
 
 ## License
 
-This project is licensed under the MIT License. Feel free to use and modify the code within the terms of the license.
+See [`LICENSE`](./LICENSE).
