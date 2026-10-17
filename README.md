@@ -3,7 +3,6 @@
 ![Fitting Results](./fit.png)
 
 **Author:** Mykyta Kizilov  
-**Affiliation:** Advanced Spectroscopy Laboratory, Texas A&M University  
 **Repository:** `https://github.com/mkizilov/RamanAnalyzer`  
 
 > A lightweight, modular toolkit for Raman spectra preprocessing and Voigt peak analysis. Includes CSV parsing, wavelength→wavenumber conversion, despiking, baseline correction (ALS & IarPLS), spectrum averaging, and iterative Voigt fitting with residual-driven refinement.
