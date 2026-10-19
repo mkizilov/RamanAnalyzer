@@ -9,12 +9,15 @@ fitting with [lmfit](https://lmfit.github.io/lmfit-py/).
 
 ![Example Voigt fit with residuals](./fit.png)
 
-**Who it is for:** people who want a small, readable preprocessing and peak-fitting pipeline built
-on NumPy, SciPy, pandas and lmfit, rather than a full spectroscopy framework.
+**Who it is for:** hobbyists experimenting with their own spectroscopy platforms, as well as
+students, researchers, and developers who want a small, readable preprocessing and peak-fitting
+pipeline built on NumPy, SciPy, pandas and lmfit, rather than a full spectroscopy framework.
 
-**Intended data:** freely and publicly available, non-personal spectra and synthetic examples.
-Public availability is not a blanket data license, so follow the terms of each data source.
-This is not a clinical or diagnostic tool.
+**Intended data:** free, openly licensed Raman spectra that are freely and publicly available and
+non-personal, plus synthetic examples for learning and testing. Public availability is not a blanket
+data license, so follow the terms of each data source. This is not a clinical or diagnostic tool.
+
+**Affiliation:** This project is not affiliated with any university.
 
 ## What it does
 
