@@ -1,0 +1,13 @@
+# Local Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.DS_Store
+synthetic_spectra.csv
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
