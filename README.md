@@ -19,6 +19,10 @@ data license, so follow the terms of each data source. This is not a clinical or
 
 **Affiliation:** This project is not affiliated with any university.
 
+**Development plan:** See the [roadmap](./ROADMAP.md) for core reliability fixes, a planned
+synthetic Raman spectrum generator with material-inspired examples, reproducible workflows,
+and milestone estimates. The roadmap describes future work, not features already implemented.
+
 ## What it does
 
 ![Workflow](./figures/Raman_workflow.png)
